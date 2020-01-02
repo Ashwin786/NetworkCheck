@@ -2,10 +2,8 @@ package com.rk.networkcheck;
 
 import android.content.Context;
 import android.content.DialogInterface;
-import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
-import android.media.ToneGenerator;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Message;
@@ -29,15 +27,22 @@ class NetworkPresenter {
 
     private static NetworkPresenter ourInstance;
     private static Context context;
+    private Ringtone ringtone;
     private MyTimerTask timerTask;
     MyPhoneStateListener psListener;
     protected Handler handler;
+    protected Handler activityHandler;
     private TelephonyManager telephonyManager;
     private static final String TAG = "NetworkPresenter";
     private int past_SignalStrength = -1;
     private AlertDialog alertDialog;
     private AlertDialog.Builder builder;
+    private Timer timer;
 
+    public NetworkPresenter() {
+
+        init_ringtone();
+    }
 
     public static NetworkPresenter getInstance(Context mcontext) {
         context = mcontext;
@@ -47,15 +52,24 @@ class NetworkPresenter {
         return ourInstance;
     }
 
+    public static NetworkPresenter getInstance() {
+        return ourInstance;
+    }
+
+    public Handler setActivityHandler(Handler activityHandler) {
+        this.activityHandler = activityHandler;
+        past_SignalStrength = -1;
+        return activityHandler;
+    }
+
     public void startMonitor() {
+        telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
         initHandler();
         initListener();
-
     }
 
     private void initListener() {
         psListener = new MyPhoneStateListener(handler);
-        telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
         telephonyManager.listen(psListener, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
     }
 
@@ -63,66 +77,78 @@ class NetworkPresenter {
         handler = new Handler() {
             @Override
             public void handleMessage(Message msg) {
+                Log.e(TAG, "handleMessage: activityHandler " + activityHandler);
+
                 if (msg.what == 1) {
                     if (checksignal() == 0) {
                         show_warning();
                     }
                     return;
                 }
-                SignalStrength signalStrength = (SignalStrength) msg.obj;
-                int signalStrengthValue = 0;
-                Log.e(TAG, "getCallState: " + telephonyManager.getCallState());
-                if (telephonyManager.getCallState() != 0) {
-                    Log.e(TAG, "handleMessage: " + "On call");
+
+                int signalStrengthValue = processSignalStrenth(msg);
+                if (signalStrengthValue == past_SignalStrength) {
+                    Log.e(TAG, "handleMessage: " + "Same signal strength");
                     return;
                 }
-                String networkType = getNetworkClass();
-                if (isAirplaneModeOn(context)) {
-                    Log.e(TAG, "handleMessage: " + "Airplane mode on");
-                    return;
+                if (activityHandler != null) {
+                    Message activityMsg = activityHandler.obtainMessage();
+                    activityMsg.obj = msg.obj;
+                    activityHandler.sendMessage(activityMsg);
                 }
+                past_SignalStrength = signalStrengthValue;
+                if (signalStrengthValue < 10) {
+                    timer_on();
+                } else
+                    timer_off();
+            }
+        };
+
+    }
+
+    protected int processSignalStrenth(Message msg) {
+        SignalStrength signalStrength = (SignalStrength) msg.obj;
+        Log.e(TAG, "getCallState: " + telephonyManager.getCallState());
+        if (telephonyManager.getCallState() != 0) {
+            Log.e(TAG, "handleMessage: " + "On call");
+            return 0;
+        }
+        String networkType = getNetworkClass();
+        if (isAirplaneModeOn(context)) {
+            Log.e(TAG, "handleMessage: " + "Airplane mode on");
+            return 0;
+        }
 
 
-                Log.e(TAG, "networkType: " + networkType);
-                if (signalStrength.isGsm()) {
-                    String ssignal = signalStrength.toString();
+        Log.e(TAG, "networkType: " + networkType);
+        int signalStrengthValue = 0;
+        if (signalStrength.isGsm()) {
+            String ssignal = signalStrength.toString();
 
-                    String[] parts = ssignal.split(" ");
+            String[] parts = ssignal.split(" ");
                    /* for (int i = 0; i < parts.length; i++) {
                         Log.e("parts : [" + i + "]", "" + parts[i]);
                     }*/
 
 
-                    if (networkType.equals("4G"))
-                        signalStrengthValue = Integer.parseInt(parts[8]);
-                    else if (networkType.equals("3G"))
-                        signalStrengthValue = Integer.parseInt(parts[15]);
-                    else if (networkType.equals("2G"))
-                        signalStrengthValue = Integer.parseInt(parts[1]);
-                    else
-                        signalStrengthValue = 0;
+            if (networkType.equals("4G"))
+                signalStrengthValue = Integer.parseInt(parts[8]);
+            else if (networkType.equals("3G"))
+                signalStrengthValue = Integer.parseInt(parts[15]);
+            else if (networkType.equals("2G"))
+                signalStrengthValue = Integer.parseInt(parts[1]);
+            else
+                signalStrengthValue = 0;
 
-                    if (signalStrengthValue == 99)
-                        signalStrengthValue = 0;
-
-                    if (signalStrengthValue == past_SignalStrength) {
-
-                        Log.e(TAG, "handleMessage: " + "Same signal strength");
-                        return;
-                    }
-                    past_SignalStrength = signalStrengthValue;
-                    Log.e("signalStrengthValue: ", "" + signalStrengthValue);
-                    if (signalStrengthValue < 3) {
-                        timer_on();
-                    } else
-                        timer_off();
+            if (signalStrengthValue == 99)
+                signalStrengthValue = 0;
 
 
-                }
+            Log.e("signalStrengthValue: ", "" + signalStrengthValue);
 
-            }
-        };
 
+        }
+        return signalStrengthValue;
     }
 
     protected int checksignal() {
@@ -143,11 +169,13 @@ class NetworkPresenter {
         cellSignalStrengthGsm.getDbm();*/
     }
 
-    private void timer_off() {
+    protected void timer_off() {
         if (timerTask != null) {
             timerTask.cancel();
             timerTask = null;
         }
+        if (timer != null)
+            timer.cancel();
         hide_dialog();
     }
 
@@ -184,22 +212,36 @@ class NetworkPresenter {
 //        ToneGenerator toneGen1 = new ToneGenerator(AudioManager.STREAM_MUSIC, 100);
 //        toneGen1.startTone(ToneGenerator.TONE_CDMA_PIP, 500);
         try {
-            Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-            Ringtone r = RingtoneManager.getRingtone(context, notification);
-            r.play();
+            if (ringtone == null) {
+                init_ringtone();
+            }
+            if (!ringtone.isPlaying())
+                ringtone.play();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void timer_on() {
-        if (timerTask == null)
+    private void init_ringtone() {
+        try {
+            Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            ringtone = RingtoneManager.getRingtone(context, notification);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    protected void timer_on() {
+
+        if (timerTask == null) {
             timerTask = new MyTimerTask(this);
-        //running timer task as daemon thread
-        Timer timer = new Timer(true);
+            //running timer task as daemon thread
+            timer = new Timer(true);
 //        timer.schedule(timerTask, 0);
-        timer.scheduleAtFixedRate(timerTask, 2*1000, 60 * 1000);
-        Log.e(TAG, "TimerTask started" );
+            timer.scheduleAtFixedRate(timerTask, 2 * 1000, 5 * 1000);
+            Log.e(TAG, "TimerTask started");
+        }
     }
 
     public void stopMonitor() {

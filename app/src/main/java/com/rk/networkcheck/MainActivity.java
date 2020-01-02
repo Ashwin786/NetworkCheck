@@ -1,81 +1,61 @@
 package com.rk.networkcheck;
 
-import android.Manifest;
-import android.app.ActivityManager;
-import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.graphics.PixelFormat;
 import android.net.Uri;
-import android.os.Binder;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Settings;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
-import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import java.util.ArrayList;
+public class MainActivity extends AppCompatActivity implements UpdateUI {
 
-public class MainActivity extends AppCompatActivity {
-    private int OVERLAY_PERMISSION_CODE = 0;
-    private SharedPreferences sp;
+
+    private static final String TAG = "MainActivity";
     private Button button;
-    private TextView tv_service_status;
+    private TextView tv_service_status, tv_signal_Status;
+    private MainPresenter presenter;
+    protected int OVERLAY_PERMISSION_CODE = 0;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        checkANDgetpermission();
+        presenter = MainPresenter.getInstance(this);
+        presenter.checkANDgetpermission();
         init();
-        check_service();
+
     }
 
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        presenter.check_service();
+
+    }
+
+
     private void init() {
-        sp = getSharedPreferences("network", Context.MODE_PRIVATE);
+
         button = (Button) findViewById(R.id.button);
         tv_service_status = (TextView) findViewById(R.id.tv_service_status);
+        tv_signal_Status = (TextView) findViewById(R.id.tv_signal_Status);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-//                NetworkPresenter.getInstance(MainActivity.this).checksignal();
-                toggle_service();
+                presenter.toggle_service();
             }
         });
 
     }
 
-    private void check_service() {
-        if (isMyServiceRunning(MyService.class)) {
-            button.setText("Stop");
-            tv_service_status.setText("Service Status : Running");
-        } else {
-            button.setText("Start");
-            tv_service_status.setText("Service Status : Stopped");
-        }
-
-    }
-
-    private void toggle_service() {
-        if (isMyServiceRunning(MyService.class)) {
-            stopService(new Intent(this, MyService.class));
-            button.setText("Start");
-            tv_service_status.setText("Service Status : Stopped");
-        } else {
-            startService(new Intent(this, MyService.class));
-            button.setText("Stop");
-            tv_service_status.setText("Service Status : Started");
-        }
-    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -86,101 +66,37 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     //Do something after 100ms
-                    check_overlay();
+                    presenter.check_overlay();
                 }
             }, 1500);
 
         }
     }
 
-    private void check_overlay() {
-        if (canDrawOverlays(this)) {
-//               Common.getInstance(this).block_ui();
-            sp.edit().putBoolean("permission_status", true).commit();
-        } else {
-            Toast.makeText(this, "Kindly switch on the permission button", Toast.LENGTH_SHORT).show();
-            addOverlay();
-        }
+    @Override
+    public void startActivityForResult() {
+        Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()));
+        startActivityForResult(intent, OVERLAY_PERMISSION_CODE);
     }
 
-    public boolean addOverlay() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (!Settings.canDrawOverlays(this)) {
-                Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()));
-                startActivityForResult(intent, OVERLAY_PERMISSION_CODE);
-
-                return false;
-            }
-        }
-        return true;
+    @Override
+    public void update_signal(String value) {
+        tv_signal_Status.setText(value);
     }
 
-    static boolean canDrawOverlays(Context context) {
-
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.M && Settings.canDrawOverlays(context))
-            return true;
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            //USING APP OPS MANAGER
-            AppOpsManager manager = (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
-            if (manager != null) {
-                try {
-                    int result = manager.checkOp(AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW, Binder.getCallingUid(), context.getPackageName());
-                    return result == AppOpsManager.MODE_ALLOWED;
-                } catch (Exception ignore) {
-                }
-            }
-        }
-
-        try {
-            //IF This Fails, we definitely can't do it
-            WindowManager mgr = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
-            if (mgr == null) return false; //getSystemService might return null
-            View viewToAdd = new View(context);
-            WindowManager.LayoutParams params = new WindowManager.LayoutParams(0, 0, android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O ?
-                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_SYSTEM_ALERT,
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSPARENT);
-            viewToAdd.setLayoutParams(params);
-            mgr.addView(viewToAdd, params);
-            mgr.removeView(viewToAdd);
-            return true;
-        } catch (Exception ignore) {
-        }
-        return false;
+    public void stopService() {
+        stopService(new Intent(this, MyService.class));
 
     }
 
-    public boolean isMyServiceRunning(Class<?> serviceClass) {
+    public void startService() {
+//        startService(new Intent(this, MyService.class));
+        Intent intent = new Intent(this, MyService.class);
+        startService(intent);
 
-        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
-            if (serviceClass.getName().equals(service.service.getClassName())) {
-                return true;
-            }
-        }
-        return false;
+
     }
 
-    private int checkANDgetpermission() {
-        String[] network = {Manifest.permission.READ_PHONE_STATE,Manifest.permission.ACCESS_COARSE_LOCATION};
-        ArrayList<String> list = new ArrayList();
-        int j = 0;
-        for (int i = 0; i < network.length; i++) {
-            if (ContextCompat.checkSelfPermission(MainActivity.this, network[i]) != PackageManager.PERMISSION_GRANTED) {
-                list.add(network[i]);
-                j++;
-            }
-        }
-
-        if (list.size() > 0) {
-            String[] get = new String[list.size()];
-            for (int i = 0; i < list.size(); i++) {
-                get[i] = list.get(i);
-            }
-            ActivityCompat.requestPermissions(MainActivity.this, get, 0);
-        } else
-            addOverlay();
-        return j;
-    }
 
     @Override
     public void onRequestPermissionsResult(int requestCode,
@@ -197,16 +113,69 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             if (!permission_granted)
-                checkANDgetpermission();
+                presenter.checkANDgetpermission();
             else {
-                addOverlay();
+                presenter.addOverlay();
             }
         }
 
 
     }
 
-/*parts[1] = GsmSignalStrength
+
+    @Override
+    public void stopButton() {
+        button.setText("Start");
+        tv_service_status.setText("Service Status : Stopped");
+        unbindService();
+    }
+
+    private void unbindService() {
+        try {
+            if (presenter.mIsBound) {
+                unbindService(presenter.serviceConnection);
+                presenter.mIsBound = false;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void startButton() {
+        button.setText("Stop");
+        tv_service_status.setText("Service Status : Started");
+        if (!presenter.mIsBound) {
+            Intent intent = new Intent(this, MyService.class);
+            bindService(intent, presenter.serviceConnection, Context.BIND_AUTO_CREATE);
+        }
+    }
+
+    @Override
+    public void update_service(int i) {
+        switch (i) {
+            case 0:
+                startService();
+                break;
+            case 1:
+                stopService();
+                break;
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        Log.e(TAG, "onStop: ");
+        unbindService();
+    }
+    /*parts[1] = GsmSignalStrength
 
 parts[2] = GsmBitErrorRate
 
