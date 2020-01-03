@@ -1,4 +1,4 @@
-package com.rk.networkcheck;
+package com.rk.networkcheck.no_signal_check;
 
 import android.content.Context;
 import android.content.Intent;
@@ -12,6 +12,9 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+
+import com.rk.networkcheck.R;
+import com.rk.networkcheck.call_statistics.CallPresenter;
 
 public class MainActivity extends AppCompatActivity implements UpdateUI {
 
@@ -84,11 +87,12 @@ public class MainActivity extends AppCompatActivity implements UpdateUI {
         tv_signal_Status.setText(value);
     }
 
+    @Override
     public void stopService() {
         stopService(new Intent(this, MyService.class));
 
     }
-
+    @Override
     public void startService() {
 //        startService(new Intent(this, MyService.class));
         Intent intent = new Intent(this, MyService.class);
@@ -151,17 +155,7 @@ public class MainActivity extends AppCompatActivity implements UpdateUI {
         }
     }
 
-    @Override
-    public void update_service(int i) {
-        switch (i) {
-            case 0:
-                startService();
-                break;
-            case 1:
-                stopService();
-                break;
-        }
-    }
+
 
     @Override
     protected void onDestroy() {

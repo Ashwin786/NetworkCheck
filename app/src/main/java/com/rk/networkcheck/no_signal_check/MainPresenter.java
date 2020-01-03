@@ -1,4 +1,4 @@
-package com.rk.networkcheck;
+package com.rk.networkcheck.no_signal_check;
 
 import android.Manifest;
 import android.app.Activity;
@@ -49,7 +49,7 @@ public class MainPresenter {
     }
 
     protected int checkANDgetpermission() {
-        String[] network = {Manifest.permission.READ_PHONE_STATE, Manifest.permission.ACCESS_COARSE_LOCATION};
+        String[] network = {Manifest.permission.READ_PHONE_STATE, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.READ_CALL_LOG};
         ArrayList<String> list = new ArrayList();
         int j = 0;
         for (int i = 0; i < network.length; i++) {
@@ -126,11 +126,11 @@ public class MainPresenter {
 
     protected void toggle_service() {
         if (isMyServiceRunning(MyService.class)) {
-            updateUI.update_service(1);
+            updateUI.stopService();
             updateUI.stopButton();
 
         } else {
-            updateUI.update_service(0);
+            updateUI.startService();
             updateUI.startButton();
 
         }

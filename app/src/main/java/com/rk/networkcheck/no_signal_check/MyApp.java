@@ -1,4 +1,4 @@
-package com.rk.networkcheck;
+package com.rk.networkcheck.no_signal_check;
 
 import android.app.AlarmManager;
 import android.app.Application;

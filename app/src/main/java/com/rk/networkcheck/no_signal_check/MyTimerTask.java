@@ -1,4 +1,4 @@
-package com.rk.networkcheck;
+package com.rk.networkcheck.no_signal_check;
 
 import android.os.Message;
 import android.util.Log;

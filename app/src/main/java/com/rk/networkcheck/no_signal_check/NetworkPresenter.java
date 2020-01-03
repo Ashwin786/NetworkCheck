@@ -1,7 +1,8 @@
-package com.rk.networkcheck;
+package com.rk.networkcheck.no_signal_check;
 
 import android.content.Context;
 import android.content.DialogInterface;
+import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
@@ -21,6 +22,8 @@ import android.util.Log;
 import android.view.ContextThemeWrapper;
 import android.view.WindowManager;
 
+import com.rk.networkcheck.R;
+
 import java.util.Timer;
 
 class NetworkPresenter {
@@ -38,6 +41,7 @@ class NetworkPresenter {
     private AlertDialog alertDialog;
     private AlertDialog.Builder builder;
     private Timer timer;
+    private AudioManager audioManager;
 
     public NetworkPresenter() {
 
@@ -97,7 +101,7 @@ class NetworkPresenter {
                     activityHandler.sendMessage(activityMsg);
                 }
                 past_SignalStrength = signalStrengthValue;
-                if (signalStrengthValue < 10) {
+                if (signalStrengthValue < 5) {
                     timer_on();
                 } else
                     timer_off();
@@ -198,6 +202,8 @@ class NetworkPresenter {
         builder.setNegativeButton("Dismiss", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
+                if(ringtone!=null && ringtone.isPlaying())
+                    ringtone.stop();
                 dialog.dismiss();
             }
         });
@@ -215,8 +221,10 @@ class NetworkPresenter {
             if (ringtone == null) {
                 init_ringtone();
             }
-            if (!ringtone.isPlaying())
+            if (!ringtone.isPlaying()) {
+                audioManager.setStreamVolume(AudioManager.STREAM_RING, 100, 0);
                 ringtone.play();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -224,7 +232,8 @@ class NetworkPresenter {
 
     private void init_ringtone() {
         try {
-            Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+            Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
             ringtone = RingtoneManager.getRingtone(context, notification);
 
         } catch (Exception e) {
@@ -239,12 +248,13 @@ class NetworkPresenter {
             //running timer task as daemon thread
             timer = new Timer(true);
 //        timer.schedule(timerTask, 0);
-            timer.scheduleAtFixedRate(timerTask, 2 * 1000, 5 * 1000);
+            timer.scheduleAtFixedRate(timerTask, 3000, (60*10) * 1000);
             Log.e(TAG, "TimerTask started");
         }
     }
 
     public void stopMonitor() {
+        timer_off();
         telephonyManager.listen(psListener, PhoneStateListener.LISTEN_NONE);
     }
 

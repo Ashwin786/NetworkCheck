@@ -1,8 +1,10 @@
-package com.rk.networkcheck;
+package com.rk.networkcheck.no_signal_check;
 
 interface UpdateUI {
 
-    void update_service(int i);
+    void startService();
+
+    void stopService();
 
     void startActivityForResult();
 
