@@ -11,6 +11,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class CallStatActivity : AppCompatActivity() {
+    private var selected_type: String = "Call"
     private var to_time: Long = 0
     private var from_time: Long = 0
     private var from: Boolean = false
@@ -37,12 +38,12 @@ class CallStatActivity : AppCompatActivity() {
                 Toast.makeText(this, "Choose from time", Toast.LENGTH_SHORT).show()
             else if (to_time == 0L)
                 Toast.makeText(this, "Choose to time", Toast.LENGTH_SHORT).show()
-            else if (rg_btn.checkedRadioButtonId == -1)
+            else /*if (rg_btn.checkedRadioButtonId == -1)
                 Toast.makeText(this, "Select Type", Toast.LENGTH_SHORT).show()
-            else {
+            else */{
                 checkType()
                 var totalDuration = CallPresenter.getInstance(this).getOutgoingCallTime(from_time, to_time, type)
-                tv_result.setText("Total " + type + "Duration : " + totalDuration / 60 + " Mins")
+                tv_result.setText("Total " + selected_type + " Duration : " + totalDuration / 60 + " Mins")
             }
 
         }
@@ -54,8 +55,10 @@ class CallStatActivity : AppCompatActivity() {
         var checkedId = rg_btn.checkedRadioButtonId
         if (R.id.rb_Outgoing == checkedId) {
             type = CallLog.Calls.OUTGOING_TYPE
+            selected_type = "Outgoing Call"
         } else if (R.id.rb_Incoming == checkedId) {
             type = CallLog.Calls.INCOMING_TYPE
+            selected_type = "Incoming Call"
         }
 
     }

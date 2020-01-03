@@ -1,7 +1,9 @@
 package com.rk.networkcheck.no_signal_check;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.pm.PackageManager;
 import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
@@ -9,6 +11,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Message;
 import android.provider.Settings;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AlertDialog;
 import android.telephony.CellInfo;
 import android.telephony.CellInfoCdma;
@@ -42,6 +45,7 @@ class NetworkPresenter {
     private AlertDialog.Builder builder;
     private Timer timer;
     private AudioManager audioManager;
+    private int signalStrengthValue;
 
     public NetworkPresenter() {
 
@@ -68,8 +72,42 @@ class NetworkPresenter {
 
     public void startMonitor() {
         telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
-        initHandler();
-        initListener();
+//        initHandler();
+//        initListener();
+        init_timer();
+    }
+
+    private void init_timer() {
+        handler = new Handler() {
+            @Override
+            public void handleMessage(Message msg) {
+                Log.e(TAG, "handleMessage: activityHandler " + activityHandler);
+                if (telephonyManager.getCallState() != 0) {
+                    Log.e(TAG, "handleMessage: " + "On call");
+                    return;
+                }
+
+                if (isAirplaneModeOn(context)) {
+                    Log.e(TAG, "handleMessage: " + "Airplane mode on");
+                    return;
+                }
+
+                signalStrengthValue = checksignal();
+
+                if (signalStrengthValue == 0) {
+                    show_warning();
+                }
+
+                if (activityHandler != null) {
+                    Message activityMsg = activityHandler.obtainMessage();
+                    activityMsg.what = 0;
+                    activityMsg.arg1 = signalStrengthValue;
+                    activityHandler.sendMessage(activityMsg);
+                }
+
+            }
+        };
+        timer_on();
     }
 
     private void initListener() {
@@ -117,13 +155,13 @@ class NetworkPresenter {
             Log.e(TAG, "handleMessage: " + "On call");
             return 0;
         }
-        String networkType = getNetworkClass();
+
         if (isAirplaneModeOn(context)) {
             Log.e(TAG, "handleMessage: " + "Airplane mode on");
             return 0;
         }
 
-
+        String networkType = getNetworkClass();
         Log.e(TAG, "networkType: " + networkType);
         int signalStrengthValue = 0;
         if (signalStrength.isGsm()) {
@@ -159,6 +197,7 @@ class NetworkPresenter {
         int signal = 0;
         if (telephonyManager.getAllCellInfo() == null || telephonyManager.getAllCellInfo().size() == 0)
             return signal;
+
         for (CellInfo cellInfo : telephonyManager.getAllCellInfo()) {
             if (cellInfo.isRegistered()) {
                 signal = getSignalStrengthDbm(cellInfo);
@@ -202,7 +241,7 @@ class NetworkPresenter {
         builder.setNegativeButton("Dismiss", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                if(ringtone!=null && ringtone.isPlaying())
+                if (ringtone != null && ringtone.isPlaying())
                     ringtone.stop();
                 dialog.dismiss();
             }
@@ -248,14 +287,16 @@ class NetworkPresenter {
             //running timer task as daemon thread
             timer = new Timer(true);
 //        timer.schedule(timerTask, 0);
-            timer.scheduleAtFixedRate(timerTask, 3000, (60*10) * 1000);
+            timer.scheduleAtFixedRate(timerTask, 3000, 15 * 1000);
+//            timer.scheduleAtFixedRate(timerTask, 3000, 5 * 1000);
             Log.e(TAG, "TimerTask started");
         }
     }
 
     public void stopMonitor() {
         timer_off();
-        telephonyManager.listen(psListener, PhoneStateListener.LISTEN_NONE);
+        if (psListener != null)
+            telephonyManager.listen(psListener, PhoneStateListener.LISTEN_NONE);
     }
 
     public String getNetworkClass() {

@@ -11,16 +11,19 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
 import com.rk.networkcheck.R;
 import com.rk.networkcheck.call_statistics.CallPresenter;
+import com.rk.networkcheck.call_statistics.CallStatActivity;
 
 public class MainActivity extends AppCompatActivity implements UpdateUI {
 
 
     private static final String TAG = "MainActivity";
     private Button button;
+    private ImageButton btn_call_history;
     private TextView tv_service_status, tv_signal_Status;
     private MainPresenter presenter;
     protected int OVERLAY_PERMISSION_CODE = 0;
@@ -48,12 +51,19 @@ public class MainActivity extends AppCompatActivity implements UpdateUI {
     private void init() {
 
         button = (Button) findViewById(R.id.button);
+        btn_call_history = (ImageButton) findViewById(R.id.btn_call_history);
         tv_service_status = (TextView) findViewById(R.id.tv_service_status);
         tv_signal_Status = (TextView) findViewById(R.id.tv_signal_Status);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 presenter.toggle_service();
+            }
+        });
+        btn_call_history.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(MainActivity.this, CallStatActivity.class));
             }
         });
 

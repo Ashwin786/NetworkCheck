@@ -64,10 +64,16 @@ public class CallPresenter {
     }
 
     public int getOutgoingCallTime(long from_time, long to_time, int type) {
-        String selection = CallLog.Calls.TYPE + " = ? and " + CallLog.Calls.DATE + " > ? and "
-                + CallLog.Calls.DATE + " < ? and " + CallLog.Calls.DURATION + " <> 0";
+        String callType = "";
+        String[] selArgs = new String[]{Long.toString(from_time), Long.toString(to_time)};
+        if (type != 0) {
+            callType = " and " + CallLog.Calls.TYPE + " = ? ";
+            selArgs = new String[]{Long.toString(from_time), Long.toString(to_time), Integer.toString(type)};
+        }
+        String selection = CallLog.Calls.DATE + " > ? and "
+                + CallLog.Calls.DATE + " < ? and " + CallLog.Calls.DURATION + " <> 0" + callType;
         Cursor managedCursor = mContext.getContentResolver().query(CallLog.Calls.CONTENT_URI, new String[]{CallLog.Calls.DURATION},
-                selection, new String[]{Integer.toString(type), Long.toString(from_time), Long.toString(to_time)}, CallLog.Calls.DATE + " DESC");
+                selection, selArgs, CallLog.Calls.DATE + " DESC");
 
         int callDuration = 0;
         while (managedCursor.moveToNext()) {

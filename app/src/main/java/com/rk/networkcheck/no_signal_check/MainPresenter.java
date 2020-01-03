@@ -160,8 +160,12 @@ public class MainPresenter {
             @Override
             public void handleMessage(Message msg) {
                 Log.e(TAG, "handleMessage: " + "New signal strength");
-                int signal = NetworkPresenter.getInstance().processSignalStrenth(msg);
-                updateUI.update_signal(getValue(signal));
+                if(msg.what==0)
+                    updateUI.update_signal(getValue(msg.arg1));
+                else {
+                    int signal = NetworkPresenter.getInstance().processSignalStrenth(msg);
+                    updateUI.update_signal(getValue(signal));
+                }
 
             }
         };
