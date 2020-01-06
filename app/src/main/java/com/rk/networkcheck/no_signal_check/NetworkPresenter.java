@@ -1,6 +1,7 @@
 package com.rk.networkcheck.no_signal_check;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
@@ -8,6 +9,7 @@ import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Message;
 import android.provider.Settings;
@@ -18,6 +20,7 @@ import android.telephony.CellInfoCdma;
 import android.telephony.CellInfoGsm;
 import android.telephony.CellInfoLte;
 import android.telephony.CellInfoWcdma;
+import android.telephony.CellLocation;
 import android.telephony.PhoneStateListener;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
@@ -46,9 +49,10 @@ class NetworkPresenter {
     private Timer timer;
     private AudioManager audioManager;
     private int signalStrengthValue;
+    protected Handler timerHandler;
 
     public NetworkPresenter() {
-
+        telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
         init_ringtone();
     }
 
@@ -70,15 +74,14 @@ class NetworkPresenter {
         return activityHandler;
     }
 
-    public void startMonitor() {
-        telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
-//        initHandler();
-//        initListener();
-        init_timer();
+    public void monitorBySignal() {
+
+        initHandler();
+        initListener();
     }
 
-    private void init_timer() {
-        handler = new Handler() {
+    public void monitorByTimer() {
+        timerHandler = new Handler() {
             @Override
             public void handleMessage(Message msg) {
                 Log.e(TAG, "handleMessage: activityHandler " + activityHandler);
@@ -98,17 +101,19 @@ class NetworkPresenter {
                     show_warning();
                 }
 
-                if (activityHandler != null) {
+                /*if (activityHandler != null) {
                     Message activityMsg = activityHandler.obtainMessage();
                     activityMsg.what = 0;
                     activityMsg.arg1 = signalStrengthValue;
                     activityHandler.sendMessage(activityMsg);
-                }
+                }*/
 
             }
         };
         timer_on();
     }
+
+
 
     private void initListener() {
         psListener = new MyPhoneStateListener(handler);
@@ -135,14 +140,15 @@ class NetworkPresenter {
                 }
                 if (activityHandler != null) {
                     Message activityMsg = activityHandler.obtainMessage();
+                    activityMsg.what = 1;
                     activityMsg.obj = msg.obj;
                     activityHandler.sendMessage(activityMsg);
                 }
                 past_SignalStrength = signalStrengthValue;
-                if (signalStrengthValue < 5) {
+               /* if (signalStrengthValue < 5) {
                     timer_on();
                 } else
-                    timer_off();
+                    timer_off();*/
             }
         };
 
@@ -193,19 +199,30 @@ class NetworkPresenter {
         return signalStrengthValue;
     }
 
+
     protected int checksignal() {
         int signal = 0;
-        if (telephonyManager.getAllCellInfo() == null || telephonyManager.getAllCellInfo().size() == 0)
-            return signal;
 
-        for (CellInfo cellInfo : telephonyManager.getAllCellInfo()) {
-            if (cellInfo.isRegistered()) {
-                signal = getSignalStrengthDbm(cellInfo);
-                Log.e(TAG, "cellInfo : " + cellInfo);
-                Log.e(TAG, "checksignal : " + signal);
-                break;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            if (telephonyManager.getAllCellInfo() == null || telephonyManager.getAllCellInfo().size() == 0)
+                return signal;
+            for (CellInfo cellInfo : telephonyManager.getAllCellInfo()) {
+                if (cellInfo.isRegistered()) {
+                    signal = getSignalStrengthDbm(cellInfo);
+                    Log.e(TAG, "cellInfo : " + cellInfo);
+                    Log.e(TAG, "checksignal : " + signal);
+                    break;
+                }
             }
+        } else {
+            if (telephonyManager.getCellLocation() == null)
+                return signal;
+            CellLocation cellInfo = telephonyManager.getCellLocation();
+            Log.e(TAG, "cellInfo : " + cellInfo);
+            Log.e(TAG, "checksignal : " + signal);
         }
+
+
         return signal;
        /* CellInfoGsm cellinfogsm = (CellInfoGsm) telephonyManager.getAllCellInfo().get(0);
         CellSignalStrengthGsm cellSignalStrengthGsm = cellinfogsm.getCellSignalStrength();
@@ -287,7 +304,7 @@ class NetworkPresenter {
             //running timer task as daemon thread
             timer = new Timer(true);
 //        timer.schedule(timerTask, 0);
-            timer.scheduleAtFixedRate(timerTask, 3000, 15 * 1000);
+            timer.scheduleAtFixedRate(timerTask, 3000, 60 * 1000);
 //            timer.scheduleAtFixedRate(timerTask, 3000, 5 * 1000);
             Log.e(TAG, "TimerTask started");
         }
@@ -336,18 +353,21 @@ class NetworkPresenter {
     }
 
     private static int getSignalStrengthDbm(CellInfo cellInfo) {
-        if (cellInfo instanceof CellInfoCdma) {
-            return ((CellInfoCdma) cellInfo).getCellSignalStrength().getDbm();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            if (cellInfo instanceof CellInfoCdma) {
+                return ((CellInfoCdma) cellInfo).getCellSignalStrength().getDbm();
+            }
+            if (cellInfo instanceof CellInfoGsm) {
+                return ((CellInfoGsm) cellInfo).getCellSignalStrength().getDbm();
+            }
+            if (cellInfo instanceof CellInfoLte) {
+                return ((CellInfoLte) cellInfo).getCellSignalStrength().getDbm();
+            }
+            if (cellInfo instanceof CellInfoWcdma) {
+                return ((CellInfoWcdma) cellInfo).getCellSignalStrength().getDbm();
+            }
         }
-        if (cellInfo instanceof CellInfoGsm) {
-            return ((CellInfoGsm) cellInfo).getCellSignalStrength().getDbm();
-        }
-        if (cellInfo instanceof CellInfoLte) {
-            return ((CellInfoLte) cellInfo).getCellSignalStrength().getDbm();
-        }
-        if (cellInfo instanceof CellInfoWcdma) {
-            return ((CellInfoWcdma) cellInfo).getCellSignalStrength().getDbm();
-        }
+
         return 0;
     }
 }

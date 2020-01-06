@@ -20,6 +20,11 @@ import android.widget.Toast;
 public class MyService extends Service {
 
     private static final String TAG = "NoSignal_Service";
+
+    public NetworkPresenter getNetworkPresenter() {
+        return networkPresenter;
+    }
+
     private NetworkPresenter networkPresenter;
 
     public IBinder onBind(Intent arg0) {
@@ -52,7 +57,7 @@ public class MyService extends Service {
         toneGen1.startTone(ToneGenerator.TONE_CDMA_PIP, 500);
 
         networkPresenter = NetworkPresenter.getInstance(this);
-        networkPresenter.startMonitor();
+        networkPresenter.monitorByTimer();
 //        networkPresenter.timer_on();
         return START_STICKY;
     }

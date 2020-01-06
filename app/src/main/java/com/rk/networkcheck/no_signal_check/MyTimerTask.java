@@ -15,9 +15,9 @@ public class MyTimerTask extends TimerTask {
     @Override
     public void run() {
         Log.e(TAG, "run: ");
-        Message msg = networkPresenter.handler.obtainMessage();
+        Message msg = networkPresenter.timerHandler.obtainMessage();
         msg.what = 1;
-        networkPresenter.handler.sendMessage(msg);
+        networkPresenter.timerHandler.sendMessage(msg);
     }
 
 }

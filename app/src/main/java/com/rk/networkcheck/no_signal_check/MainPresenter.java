@@ -160,7 +160,7 @@ public class MainPresenter {
             @Override
             public void handleMessage(Message msg) {
                 Log.e(TAG, "handleMessage: " + "New signal strength");
-                if(msg.what==0)
+                if (msg.what == 0)
                     updateUI.update_signal(getValue(msg.arg1));
                 else {
                     int signal = NetworkPresenter.getInstance().processSignalStrenth(msg);
@@ -176,7 +176,9 @@ public class MainPresenter {
 
     private String getValue(int signalStrengthValue) {
         String signalDesc = "No Signal";
-        if (signalStrengthValue >= 30) {
+        if (signalStrengthValue >= 35) {
+            signalDesc = "Signal : Very Good";
+        } else if (signalStrengthValue >= 30) {
             signalDesc = "Signal : Good";
         } else if (signalStrengthValue > 20 && signalStrengthValue < 30) {
             signalDesc = "Signal  : Average";
@@ -185,8 +187,9 @@ public class MainPresenter {
         } else if (signalStrengthValue < 3 && signalStrengthValue > 0) {
             signalDesc = "Signal  : Very weak";
         }
-        return NetworkPresenter.getInstance().getNetworkClass()+" "+signalDesc + " / " + signalStrengthValue;
+        return NetworkPresenter.getInstance().getNetworkClass() + " " + signalDesc + " / " + signalStrengthValue;
     }
+
     protected boolean mIsBound = false;
     protected ServiceConnection serviceConnection = new ServiceConnection() {
 
@@ -197,7 +200,8 @@ public class MainPresenter {
             MyService.MyBinder binder = (MyService.MyBinder) service;
             myService = binder.getServices();
             myService.setActivityHandler(activity_handler);
-            mIsBound=true;
+            myService.getNetworkPresenter().monitorBySignal();
+            mIsBound = true;
         }
 
         @Override
@@ -212,4 +216,6 @@ public class MainPresenter {
             myService = null;
         }
     };
+
+
 }
