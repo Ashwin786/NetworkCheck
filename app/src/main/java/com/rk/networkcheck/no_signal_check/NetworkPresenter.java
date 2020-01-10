@@ -1,19 +1,16 @@
 package com.rk.networkcheck.no_signal_check;
 
-import android.Manifest;
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.pm.PackageManager;
 import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
+import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Message;
 import android.provider.Settings;
-import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AlertDialog;
 import android.telephony.CellInfo;
 import android.telephony.CellInfoCdma;
@@ -29,6 +26,7 @@ import android.view.ContextThemeWrapper;
 import android.view.WindowManager;
 
 import com.rk.networkcheck.R;
+import com.rk.networkcheck.low_battery_check.BatteryProcess;
 
 import java.util.Timer;
 
@@ -50,6 +48,8 @@ class NetworkPresenter {
     private AudioManager audioManager;
     private int signalStrengthValue;
     protected Handler timerHandler;
+    private String networkType = "Unknown";
+    private int signal;
 
     public NetworkPresenter() {
         telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
@@ -74,17 +74,18 @@ class NetworkPresenter {
         return activityHandler;
     }
 
-    public void monitorBySignal() {
-
-        initHandler();
-        initListener();
-    }
 
     public void monitorByTimer() {
         timerHandler = new Handler() {
             @Override
             public void handleMessage(Message msg) {
                 Log.e(TAG, "handleMessage: activityHandler " + activityHandler);
+                /*Battery */
+                if (msg.what == 2) {
+                    show_warning("Battery Low");
+                    return;
+                }
+//                BatteryProcess.getInstance(context).registerBatteryReceiver(timerHandler);
                 if (telephonyManager.getCallState() != 0) {
                     Log.e(TAG, "handleMessage: " + "On call");
                     return;
@@ -98,21 +99,14 @@ class NetworkPresenter {
                 signalStrengthValue = checksignal();
 
                 if (signalStrengthValue == 0) {
-                    show_warning();
+                    show_warning("No Network");
                 }
-
-                /*if (activityHandler != null) {
-                    Message activityMsg = activityHandler.obtainMessage();
-                    activityMsg.what = 0;
-                    activityMsg.arg1 = signalStrengthValue;
-                    activityHandler.sendMessage(activityMsg);
-                }*/
 
             }
         };
         timer_on();
+        BatteryProcess.getInstance(context).registerBatteryReceiver(timerHandler);
     }
-
 
 
     private void initListener() {
@@ -120,97 +114,65 @@ class NetworkPresenter {
         telephonyManager.listen(psListener, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
     }
 
-    private void initHandler() {
+    protected void monitorBySignal() {
         handler = new Handler() {
             @Override
             public void handleMessage(Message msg) {
                 Log.e(TAG, "handleMessage: activityHandler " + activityHandler);
 
-                if (msg.what == 1) {
-                    if (checksignal() == 0) {
-                        show_warning();
-                    }
-                    return;
-                }
+                SignalDetails signal = checksignalDetails();
 
-                int signalStrengthValue = processSignalStrenth(msg);
-                if (signalStrengthValue == past_SignalStrength) {
-                    Log.e(TAG, "handleMessage: " + "Same signal strength");
-                    return;
-                }
                 if (activityHandler != null) {
                     Message activityMsg = activityHandler.obtainMessage();
                     activityMsg.what = 1;
-                    activityMsg.obj = msg.obj;
+
+                    activityMsg.obj = signal;
                     activityHandler.sendMessage(activityMsg);
                 }
-                past_SignalStrength = signalStrengthValue;
-               /* if (signalStrengthValue < 5) {
-                    timer_on();
-                } else
-                    timer_off();*/
             }
         };
-
+        initListener();
     }
 
-    protected int processSignalStrenth(Message msg) {
-        SignalStrength signalStrength = (SignalStrength) msg.obj;
-        Log.e(TAG, "getCallState: " + telephonyManager.getCallState());
-        if (telephonyManager.getCallState() != 0) {
-            Log.e(TAG, "handleMessage: " + "On call");
-            return 0;
-        }
+    private SignalDetails checksignalDetails() {
 
-        if (isAirplaneModeOn(context)) {
-            Log.e(TAG, "handleMessage: " + "Airplane mode on");
-            return 0;
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            if (telephonyManager.getAllCellInfo() == null || telephonyManager.getAllCellInfo().size() == 0)
+                return null;
+            for (CellInfo cellInfo : telephonyManager.getAllCellInfo()) {
+                if (cellInfo.isRegistered()) {
+                    Log.e(TAG, "cellInfo : " + cellInfo);
+                    SignalDetails signaldetail = new SignalDetails();
+                    signaldetail.setDbmValue(getSignalStrengthDbm(cellInfo));
+                    signaldetail.setSignalValue(getSignalStrengthAsu(cellInfo));
+                    signaldetail.setNetworkType(networkType);
 
-        String networkType = getNetworkClass();
-        Log.e(TAG, "networkType: " + networkType);
-        int signalStrengthValue = 0;
-        if (signalStrength.isGsm()) {
-            String ssignal = signalStrength.toString();
-
-            String[] parts = ssignal.split(" ");
-                   /* for (int i = 0; i < parts.length; i++) {
-                        Log.e("parts : [" + i + "]", "" + parts[i]);
-                    }*/
-
-
-            if (networkType.equals("4G"))
-                signalStrengthValue = Integer.parseInt(parts[8]);
-            else if (networkType.equals("3G"))
-                signalStrengthValue = Integer.parseInt(parts[15]);
-            else if (networkType.equals("2G"))
-                signalStrengthValue = Integer.parseInt(parts[1]);
-            else
-                signalStrengthValue = 0;
-
-            if (signalStrengthValue == 99)
-                signalStrengthValue = 0;
-
-
-            Log.e("signalStrengthValue: ", "" + signalStrengthValue);
-
+                    return signaldetail;
+                }
+            }
+        } else {
 
         }
-        return signalStrengthValue;
+
+
+        return null;
+
     }
 
 
     protected int checksignal() {
-        int signal = 0;
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
             if (telephonyManager.getAllCellInfo() == null || telephonyManager.getAllCellInfo().size() == 0)
                 return signal;
             for (CellInfo cellInfo : telephonyManager.getAllCellInfo()) {
                 if (cellInfo.isRegistered()) {
-                    signal = getSignalStrengthDbm(cellInfo);
                     Log.e(TAG, "cellInfo : " + cellInfo);
-                    Log.e(TAG, "checksignal : " + signal);
+                    signal = getSignalStrengthDbm(cellInfo);
+                    Log.e(TAG, "checksignal dbm: " + signal);
+//                    signal = 140 + signal;
+                    Log.e(TAG, "checksignal value: " + signal);
+
                     break;
                 }
             }
@@ -229,7 +191,7 @@ class NetworkPresenter {
         cellSignalStrengthGsm.getDbm();*/
     }
 
-    protected void timer_off() {
+    protected void stopMonitorByTimer() {
         if (timerTask != null) {
             timerTask.cancel();
             timerTask = null;
@@ -237,6 +199,7 @@ class NetworkPresenter {
         if (timer != null)
             timer.cancel();
         hide_dialog();
+        BatteryProcess.getInstance(context).unregisterBatteryReceiver();
     }
 
     private void hide_dialog() {
@@ -244,17 +207,17 @@ class NetworkPresenter {
             alertDialog.dismiss();
     }
 
-    protected void show_warning() {
+    protected void show_warning(String msg) {
         alarm();
-        show_dialog();
+        show_dialog(msg);
     }
 
-    private void show_dialog() {
+    private void show_dialog(String msg) {
         if (alertDialog != null && alertDialog.isShowing())
             return;
         builder = new AlertDialog.Builder(new ContextThemeWrapper(context, R.style.myDialog));
         builder.setTitle("Warning!!");
-        builder.setMessage("No Network");
+        builder.setMessage(msg);
         builder.setNegativeButton("Dismiss", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
@@ -304,45 +267,16 @@ class NetworkPresenter {
             //running timer task as daemon thread
             timer = new Timer(true);
 //        timer.schedule(timerTask, 0);
-            timer.scheduleAtFixedRate(timerTask, 3000, 60 * 1000);
+            timer.scheduleAtFixedRate(timerTask, 3000, 15 * 60 * 1000);
 //            timer.scheduleAtFixedRate(timerTask, 3000, 5 * 1000);
             Log.e(TAG, "TimerTask started");
         }
     }
 
-    public void stopMonitor() {
-        timer_off();
+    public void stopMonitorBySignal() {
         if (psListener != null)
             telephonyManager.listen(psListener, PhoneStateListener.LISTEN_NONE);
-    }
-
-    public String getNetworkClass() {
-
-        int networkType = telephonyManager.getNetworkType();
-
-
-        switch (networkType) {
-            case TelephonyManager.NETWORK_TYPE_GPRS:
-            case TelephonyManager.NETWORK_TYPE_EDGE:
-            case TelephonyManager.NETWORK_TYPE_CDMA:
-            case TelephonyManager.NETWORK_TYPE_1xRTT:
-            case TelephonyManager.NETWORK_TYPE_IDEN:
-                return "2G";
-            case TelephonyManager.NETWORK_TYPE_UMTS:
-            case TelephonyManager.NETWORK_TYPE_EVDO_0:
-            case TelephonyManager.NETWORK_TYPE_EVDO_A:
-            case TelephonyManager.NETWORK_TYPE_HSDPA:
-            case TelephonyManager.NETWORK_TYPE_HSUPA:
-            case TelephonyManager.NETWORK_TYPE_HSPA:
-            case TelephonyManager.NETWORK_TYPE_EVDO_B:
-            case TelephonyManager.NETWORK_TYPE_EHRPD:
-            case TelephonyManager.NETWORK_TYPE_HSPAP:
-                return "3G";
-            case TelephonyManager.NETWORK_TYPE_LTE:
-                return "4G";
-            default:
-                return "Unknown";
-        }
+//        BatteryProcess.getInstance(context).unregisterBatteryReceiver();
     }
 
     private boolean isAirplaneModeOn(Context context) {
@@ -352,22 +286,48 @@ class NetworkPresenter {
 
     }
 
-    private static int getSignalStrengthDbm(CellInfo cellInfo) {
+    private int getSignalStrengthDbm(CellInfo cellInfo) {
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
             if (cellInfo instanceof CellInfoCdma) {
+                networkType = "2G";
                 return ((CellInfoCdma) cellInfo).getCellSignalStrength().getDbm();
             }
             if (cellInfo instanceof CellInfoGsm) {
+                networkType = "2G";
                 return ((CellInfoGsm) cellInfo).getCellSignalStrength().getDbm();
             }
             if (cellInfo instanceof CellInfoLte) {
+                networkType = "4G";
                 return ((CellInfoLte) cellInfo).getCellSignalStrength().getDbm();
             }
             if (cellInfo instanceof CellInfoWcdma) {
+                networkType = "3G";
                 return ((CellInfoWcdma) cellInfo).getCellSignalStrength().getDbm();
             }
         }
-
+        networkType = "Unknown";
         return 0;
     }
+
+    private int getSignalStrengthAsu(CellInfo cellInfo) {
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            if (cellInfo instanceof CellInfoCdma) {
+                return ((CellInfoCdma) cellInfo).getCellSignalStrength().getAsuLevel();
+            }
+            if (cellInfo instanceof CellInfoGsm) {
+                return ((CellInfoGsm) cellInfo).getCellSignalStrength().getAsuLevel();
+            }
+            if (cellInfo instanceof CellInfoLte) {
+                return ((CellInfoLte) cellInfo).getCellSignalStrength().getAsuLevel();
+            }
+            if (cellInfo instanceof CellInfoWcdma) {
+                return ((CellInfoWcdma) cellInfo).getCellSignalStrength().getAsuLevel();
+            }
+        }
+        return 0;
+    }
+
+
 }

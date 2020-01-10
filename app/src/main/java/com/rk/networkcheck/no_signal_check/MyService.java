@@ -28,7 +28,8 @@ public class MyService extends Service {
     private NetworkPresenter networkPresenter;
 
     public IBinder onBind(Intent arg0) {
-        Log.e(TAG, "onUnbind: ");
+        Log.e(TAG, "onBind: ");
+        networkPresenter.monitorBySignal();
         return binder;
     }
 
@@ -41,12 +42,14 @@ public class MyService extends Service {
     @Override
     public boolean onUnbind(Intent intent) {
         Log.e(TAG, "onUnbind: ");
+        networkPresenter.stopMonitorBySignal();
         return true;
     }
 
     @Override
     public void onRebind(Intent intent) {
         Log.e(TAG, "onRebind: ");
+        networkPresenter.monitorBySignal();
         super.onRebind(intent);
     }
 
@@ -58,7 +61,7 @@ public class MyService extends Service {
 
         networkPresenter = NetworkPresenter.getInstance(this);
         networkPresenter.monitorByTimer();
-//        networkPresenter.timer_on();
+//        networkPresenter.monitorBySignal();
         return START_STICKY;
     }
 
@@ -71,9 +74,11 @@ public class MyService extends Service {
         super.onDestroy();
         Log.e(TAG, "Service stopped");
         Toast.makeText(this, "Service Stopped ...", Toast.LENGTH_SHORT).show();
-        if (networkPresenter != null)
-            networkPresenter.stopMonitor();
-//        networkPresenter.timer_off();
+        if (networkPresenter != null) {
+            networkPresenter.stopMonitorBySignal();
+            networkPresenter.stopMonitorByTimer();
+        }
+//        networkPresenter.stopMonitorByTimer();
     }
 
 

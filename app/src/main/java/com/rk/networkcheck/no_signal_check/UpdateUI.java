@@ -8,7 +8,7 @@ interface UpdateUI {
 
     void startActivityForResult();
 
-    void update_signal(String value);
+    void update_signal(SignalDetails signalDetails);
 
     void stopButton();
 

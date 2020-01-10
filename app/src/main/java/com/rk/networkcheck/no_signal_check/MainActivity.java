@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Settings;
+import android.support.constraint.ConstraintLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -15,7 +16,6 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 
 import com.rk.networkcheck.R;
-import com.rk.networkcheck.call_statistics.CallPresenter;
 import com.rk.networkcheck.call_statistics.CallStatActivity;
 
 public class MainActivity extends AppCompatActivity implements UpdateUI {
@@ -24,9 +24,10 @@ public class MainActivity extends AppCompatActivity implements UpdateUI {
     private static final String TAG = "MainActivity";
     private Button button;
     private ImageButton btn_call_history;
-    private TextView tv_service_status, tv_signal_Status;
+    private TextView tv_networkType, tv_signal_Status,tv_signal_value,tv_dbm_value;
     private MainPresenter presenter;
     protected int OVERLAY_PERMISSION_CODE = 0;
+    private ConstraintLayout cl_details;
 
 
     @Override
@@ -52,8 +53,11 @@ public class MainActivity extends AppCompatActivity implements UpdateUI {
 
         button = (Button) findViewById(R.id.button);
         btn_call_history = (ImageButton) findViewById(R.id.btn_call_history);
-        tv_service_status = (TextView) findViewById(R.id.tv_service_status);
+        tv_networkType = (TextView) findViewById(R.id.tv_networkType);
+        tv_signal_value = (TextView) findViewById(R.id.tv_signal_value);
         tv_signal_Status = (TextView) findViewById(R.id.tv_signal_Status);
+        tv_dbm_value = (TextView) findViewById(R.id.tv_dbm_value);
+        cl_details = (ConstraintLayout) findViewById(R.id.cl_details);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -66,7 +70,6 @@ public class MainActivity extends AppCompatActivity implements UpdateUI {
                 startActivity(new Intent(MainActivity.this, CallStatActivity.class));
             }
         });
-
     }
 
 
@@ -93,8 +96,11 @@ public class MainActivity extends AppCompatActivity implements UpdateUI {
     }
 
     @Override
-    public void update_signal(String value) {
-        tv_signal_Status.setText(value);
+    public void update_signal(SignalDetails signalDetails) {
+        tv_signal_Status.setText(signalDetails.getSignalDesc());
+        tv_networkType.setText(signalDetails.getNetworkType());
+        tv_signal_value.setText(""+signalDetails.getSignalValue());
+        tv_dbm_value.setText(""+signalDetails.getDbmValue());
     }
 
     @Override
@@ -140,7 +146,7 @@ public class MainActivity extends AppCompatActivity implements UpdateUI {
     @Override
     public void stopButton() {
         button.setText("Start");
-        tv_service_status.setText("Service Status : Stopped");
+        cl_details.setVisibility(View.INVISIBLE);
         unbindService();
     }
 
@@ -158,7 +164,7 @@ public class MainActivity extends AppCompatActivity implements UpdateUI {
     @Override
     public void startButton() {
         button.setText("Stop");
-        tv_service_status.setText("Service Status : Started");
+        cl_details.setVisibility(View.VISIBLE);
         if (!presenter.mIsBound) {
             Intent intent = new Intent(this, MyService.class);
             bindService(intent, presenter.serviceConnection, Context.BIND_AUTO_CREATE);

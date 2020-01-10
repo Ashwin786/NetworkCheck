@@ -33,6 +33,9 @@ public class MainPresenter {
     private Handler activity_handler;
     private static final String TAG = "MainPresenter";
     private MyService myService;
+    private SignalDetails signalDetails;
+    private long signalValue;
+    private String signalDesc;
 
     public MainPresenter(Context mcontext) {
         this.mcontext = mcontext;
@@ -159,14 +162,12 @@ public class MainPresenter {
         activity_handler = new Handler() {
             @Override
             public void handleMessage(Message msg) {
-                Log.e(TAG, "handleMessage: " + "New signal strength");
-                if (msg.what == 0)
-                    updateUI.update_signal(getValue(msg.arg1));
-                else {
-                    int signal = NetworkPresenter.getInstance().processSignalStrenth(msg);
-                    updateUI.update_signal(getValue(signal));
-                }
-
+                Log.e(TAG, "handleMessage" + "New signal strength");
+                signalDetails = (SignalDetails) msg.obj;
+//                signalValue = getValue(signalDetails);
+                signalDetails.setSignalDesc(getSignalDbmDesc(signalDetails));
+                signalDetails.setSignalValue((int)calcValue(signalDetails));
+                updateUI.update_signal(signalDetails);
             }
         };
 
@@ -174,20 +175,65 @@ public class MainPresenter {
 
     }
 
-    private String getValue(int signalStrengthValue) {
+    private long calcValue(SignalDetails signalDetails) {
+        int value = 110 -(- signalDetails.getDbmValue());
+        if (value > 0)
+            return Math.round(value*1.66);
+        else
+            return 0;
+    }
+
+    private String getSignalDbmDesc(SignalDetails signalDetails) {
+        long signalValue = signalDetails.getDbmValue();
         String signalDesc = "No Signal";
-        if (signalStrengthValue >= 35) {
-            signalDesc = "Signal : Very Good";
-        } else if (signalStrengthValue >= 30) {
-            signalDesc = "Signal : Good";
-        } else if (signalStrengthValue > 20 && signalStrengthValue < 30) {
-            signalDesc = "Signal  : Average";
-        } else if (signalStrengthValue < 20 && signalStrengthValue > 3) {
-            signalDesc = "Signal  : Weak";
-        } else if (signalStrengthValue < 3 && signalStrengthValue > 0) {
-            signalDesc = "Signal  : Very weak";
+        if (signalValue >= -60) {
+            signalDesc = "Excellent";
+        } else if (signalValue >= -69) {
+            signalDesc = "Very Good";
+        } else if (signalValue >= -79) {
+            signalDesc = "Good";
+        } else if (signalValue >= -89) {
+            signalDesc = "Average";
+        } else if (signalValue >= -99) {
+            signalDesc = "Weak";
+        } else if (signalValue >= -109) {
+            signalDesc = "Very Weak";
+        } else {
+            if (signalDetails.getSignalValue() > 1)
+                signalDesc = "Very Weak";
         }
-        return NetworkPresenter.getInstance().getNetworkClass() + " " + signalDesc + " / " + signalStrengthValue;
+        return signalDesc;
+    }
+
+    private String getSignalDesc(long signalValue) {
+        String signalDesc = "No Signal";
+        if (signalValue >= 95) {
+            signalDesc = "Excellent";
+        } else if (signalValue >= 80) {
+            signalDesc = "Very Good";
+        } else if (signalValue >= 60) {
+            signalDesc = "Good";
+        } else if (signalValue >= 40) {
+            signalDesc = "Average";
+        } else if (signalValue >= 20) {
+            signalDesc = "Weak";
+        } else if (signalValue > 5) {
+            signalDesc = "Very weak";
+        }
+        return signalDesc;
+    }
+
+    private long getValue(SignalDetails signalDetails) {
+        int signalStrengthValue = signalDetails.getSignalValue();
+        String signalDesc = "No Signal";
+        long signalValue = signalStrengthValue;
+        if (signalDetails.getNetworkType().equals("4G")) {
+            signalValue = Math.round(signalStrengthValue * 1.52);
+        } else {
+            signalValue = Math.round(signalStrengthValue * 3.22);
+        }
+
+        return signalValue > 100 ? 100 : signalValue;
     }
 
     protected boolean mIsBound = false;
@@ -200,7 +246,7 @@ public class MainPresenter {
             MyService.MyBinder binder = (MyService.MyBinder) service;
             myService = binder.getServices();
             myService.setActivityHandler(activity_handler);
-            myService.getNetworkPresenter().monitorBySignal();
+//            myService.getNetworkPresenter().monitorBySignal();
             mIsBound = true;
         }
 
