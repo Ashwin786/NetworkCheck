@@ -166,7 +166,7 @@ public class MainPresenter {
                 signalDetails = (SignalDetails) msg.obj;
 //                signalValue = getValue(signalDetails);
                 signalDetails.setSignalDesc(getSignalDbmDesc(signalDetails));
-                signalDetails.setSignalValue((int)calcValue(signalDetails));
+                signalDetails.setSignalValue((int) calcValue(signalDetails));
                 updateUI.update_signal(signalDetails);
             }
         };
@@ -176,9 +176,11 @@ public class MainPresenter {
     }
 
     private long calcValue(SignalDetails signalDetails) {
-        int value = 110 -(- signalDetails.getDbmValue());
+        if(signalDetails.getDbmValue()==0)
+            return signalDetails.getSignalValue();
+        int value = 110 - (-signalDetails.getDbmValue());
         if (value > 0)
-            return Math.round(value*1.66);
+            return Math.round(value * 1.66);
         else
             return 0;
     }
@@ -186,6 +188,9 @@ public class MainPresenter {
     private String getSignalDbmDesc(SignalDetails signalDetails) {
         long signalValue = signalDetails.getDbmValue();
         String signalDesc = "No Signal";
+        if (signalValue == 0) {
+            return signalDesc;
+        }
         if (signalValue >= -60) {
             signalDesc = "Excellent";
         } else if (signalValue >= -69) {

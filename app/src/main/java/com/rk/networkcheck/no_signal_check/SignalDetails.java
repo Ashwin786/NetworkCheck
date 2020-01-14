@@ -9,14 +9,14 @@ class SignalDetails {
         this.signalValue = signalValue;
     }
 
-    private int signalValue;
+    private int signalValue = 0;
 
     public void setNetworkType(String networkType) {
         this.networkType = networkType;
     }
 
     private String networkType;
-    private int dbmValue;
+    private int dbmValue = 0;
 
     public String getSignalDesc() {
         return signalDesc;

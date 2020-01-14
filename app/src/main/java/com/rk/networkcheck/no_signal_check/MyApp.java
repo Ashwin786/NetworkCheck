@@ -9,6 +9,7 @@ import android.util.Log;
 
 public class MyApp extends Application {
     private static final String TAG = "Network check";
+    protected static final int MAX_DBM = -110;
 
     @Override
     public void onCreate() {

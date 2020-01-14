@@ -24,7 +24,7 @@ public class MainActivity extends AppCompatActivity implements UpdateUI {
     private static final String TAG = "MainActivity";
     private Button button;
     private ImageButton btn_call_history;
-    private TextView tv_networkType, tv_signal_Status,tv_signal_value,tv_dbm_value;
+    private TextView tv_networkType, tv_signal_Status, tv_signal_value, tv_dbm_value;
     private MainPresenter presenter;
     protected int OVERLAY_PERMISSION_CODE = 0;
     private ConstraintLayout cl_details;
@@ -99,8 +99,8 @@ public class MainActivity extends AppCompatActivity implements UpdateUI {
     public void update_signal(SignalDetails signalDetails) {
         tv_signal_Status.setText(signalDetails.getSignalDesc());
         tv_networkType.setText(signalDetails.getNetworkType());
-        tv_signal_value.setText(""+signalDetails.getSignalValue());
-        tv_dbm_value.setText(""+signalDetails.getDbmValue());
+        tv_signal_value.setText("" + (signalDetails.getSignalValue() <= 0 ? "" : "" + signalDetails.getSignalValue()));
+        tv_dbm_value.setText("" + (signalDetails.getDbmValue() <= MyApp.MAX_DBM ?  "" : "" + signalDetails.getDbmValue()));
     }
 
     @Override
@@ -108,6 +108,7 @@ public class MainActivity extends AppCompatActivity implements UpdateUI {
         stopService(new Intent(this, MyService.class));
 
     }
+
     @Override
     public void startService() {
 //        startService(new Intent(this, MyService.class));
@@ -170,7 +171,6 @@ public class MainActivity extends AppCompatActivity implements UpdateUI {
             bindService(intent, presenter.serviceConnection, Context.BIND_AUTO_CREATE);
         }
     }
-
 
 
     @Override

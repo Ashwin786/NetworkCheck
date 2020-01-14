@@ -135,27 +135,23 @@ class NetworkPresenter {
     }
 
     private SignalDetails checksignalDetails() {
-
+        SignalDetails signaldetail = new SignalDetails();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
             if (telephonyManager.getAllCellInfo() == null || telephonyManager.getAllCellInfo().size() == 0)
-                return null;
+                return signaldetail;
             for (CellInfo cellInfo : telephonyManager.getAllCellInfo()) {
                 if (cellInfo.isRegistered()) {
                     Log.e(TAG, "cellInfo : " + cellInfo);
-                    SignalDetails signaldetail = new SignalDetails();
+
                     signaldetail.setDbmValue(getSignalStrengthDbm(cellInfo));
                     signaldetail.setSignalValue(getSignalStrengthAsu(cellInfo));
                     signaldetail.setNetworkType(networkType);
-
-                    return signaldetail;
+                    break;
                 }
             }
-        } else {
-
         }
 
-
-        return null;
+        return signaldetail;
 
     }
 
